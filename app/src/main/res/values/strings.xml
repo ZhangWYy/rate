@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Week6</string>
+    <string name="rmb_hint">Input RMB:</string>
+    <string name="num">Number</string>
+    <string name="btn_dollar">Dollar</string>
+    <string name="btn_euro">Euro</string>
+    <string name="btn_krw">KRW</string>
+    <string name="btn_open">Config</string>
+    <string name="btn_save_label">Save</string>
+    <string name="memu_set_label">Setting</string>
+</resources>
