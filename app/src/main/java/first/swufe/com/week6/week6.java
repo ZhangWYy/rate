@@ -1,6 +1,10 @@
 package first.swufe.com.week6;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,7 +15,16 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class week6 extends AppCompatActivity {
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+
+public class week6 extends AppCompatActivity implements Runnable {
 
     private final String TAG = "Rate";
     private float dollarRate = 0.1f;
@@ -20,6 +33,7 @@ public class week6 extends AppCompatActivity {
 
     EditText rmb;
     TextView showTxt;
+    Handler handler;
 
 
     @Override
@@ -29,6 +43,33 @@ public class week6 extends AppCompatActivity {
 
         rmb = (EditText) findViewById(R.id.rmb);
         showTxt = (TextView) findViewById(R.id.showTxt);
+
+        //获取SP里保存的数据
+        SharedPreferences sharedPreferences = getSharedPreferences("myrate", Activity.MODE_PRIVATE);
+        dollarRate = sharedPreferences.getFloat("dollar_rate",0.0f);
+        euroRate = sharedPreferences.getFloat("euro_rate",0.0f);
+        krwRate = sharedPreferences.getFloat("krw_rate",0.0f);
+
+        Log.i(TAG,"onCreate: sp dollarRate=" + dollarRate);
+        Log.i(TAG,"onCreate: sp euroRate="+euroRate);
+        Log.i(TAG,"onCreate: sp krwRate="+krwRate);
+
+        //开启子线程
+        Thread t = new Thread(this);//当前对象已经实现了接口，可以作为线程运行的载体
+        t.start();
+        handler = new Handler(){
+            @Override
+            public void handleMessage(Message msg) {
+                if(msg.what==5){
+                    String str = (String)msg.obj;
+                    Log.i(TAG, "handleMessage: getMesseage msg ="+str);
+                    showTxt.setText(str);
+                }
+                super.handleMessage(msg);
+            }
+        };
+
+
     }
 
     public void onClick(View btn){
@@ -38,6 +79,7 @@ public class week6 extends AppCompatActivity {
             r = Float.parseFloat(str);
         }else{
             Toast.makeText(this,"请输入金额",Toast.LENGTH_SHORT).show();
+            return;
         }
 
         Log.i(TAG,"onClick:r="+r);
@@ -99,10 +141,74 @@ public class week6 extends AppCompatActivity {
             Log.i(TAG,"onActivityResult:dollarRate="+dollarRate);
             Log.i(TAG,"onActivityResult:euroRate="+euroRate);
             Log.i(TAG,"onActivityResult:krwRate="+krwRate);
+
+            //将新设置的汇率写到SP里
+            SharedPreferences sharedPreferences = getSharedPreferences("myrate", Activity.MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putFloat("dollar_rate",dollarRate);
+            editor.putFloat("euro_rate",euroRate);
+            editor.putFloat("krw_rate",krwRate);
+            //保存
+            editor.commit();
+            Log.i(TAG,"onActivityResult: 数据已保存到sharedPreferences");
+
         }
 
 
         super.onActivityResult(requestCode,resultCode,data);
     }
 
+    @Override
+    public void run() {
+        Log.i(TAG, "run: run()......");
+        for(int i=1;i<6;i++){
+            Log.i(TAG, "run: i="+i);
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        //获取Msg对象，用于返回主线程
+        Message msg = handler.obtainMessage();
+        msg.what = 5;
+        //Message msg = handler.obtainMessage(5);
+        msg.obj = "Hello from run()";
+        handler.sendMessage(msg);
+
+        //获取网络数据
+        URL url = null;
+        try {
+            url = new URL("http://www.usd-cny.com/icbc.htm");
+            HttpURLConnection http = (HttpURLConnection) url.openConnection();
+            InputStream in = http.getInputStream();//获得输入流
+            //将in转换为字符串
+            String html = inputStream2String(in);
+            Log.i(TAG, "run: html="+html);
+
+
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+    //将输入流转换成字符串输出
+    private String inputStream2String(InputStream inputStream) throws IOException {
+        final int bufferSize = 1024;
+        final char[] buffer = new char[bufferSize];
+        final StringBuilder out = new StringBuilder();
+        Reader in = new InputStreamReader(inputStream,"gb2312");
+        for(;;){
+            int rsz = in.read(buffer,0,buffer.length);
+            if(rsz<0)
+                break;
+            out.append(buffer,0,rsz);
+        }
+        return out.toString();
+    }
 }
