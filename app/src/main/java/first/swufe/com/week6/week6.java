@@ -3,10 +3,10 @@ package first.swufe.com.week6;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -15,14 +15,15 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 
 public class week6 extends AppCompatActivity implements Runnable {
 
@@ -60,10 +61,18 @@ public class week6 extends AppCompatActivity implements Runnable {
         handler = new Handler(){
             @Override
             public void handleMessage(Message msg) {
+                //获取数据
                 if(msg.what==5){
-                    String str = (String)msg.obj;
-                    Log.i(TAG, "handleMessage: getMesseage msg ="+str);
-                    showTxt.setText(str);
+                    Bundle bdl = (Bundle)msg.obj;
+                    dollarRate = bdl.getFloat("dollar-rate");
+                    euroRate = bdl.getFloat("euro-rate");
+                    krwRate = bdl.getFloat("krw-rate");
+
+                    Log.i(TAG, "handleMessage: dollarRate"+dollarRate);
+                    Log.i(TAG, "handleMessage: euroRate"+euroRate);
+                    Log.i(TAG, "handleMessage: krwRate"+krwRate);
+
+                    Toast.makeText(week6.this,"汇率已更新",Toast.LENGTH_SHORT).show();
                 }
                 super.handleMessage(msg);
             }
@@ -161,38 +170,91 @@ public class week6 extends AppCompatActivity implements Runnable {
     @Override
     public void run() {
         Log.i(TAG, "run: run()......");
-        for(int i=1;i<6;i++){
-            Log.i(TAG, "run: i="+i);
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
                 e.printStackTrace();
-            }
         }
 
-        //获取Msg对象，用于返回主线程
+        //用于保存获取的汇率
+        Bundle bundle = new Bundle();
+
+
+        /*//获取Msg对象，用于返回主线程
         Message msg = handler.obtainMessage();
         msg.what = 5;
         //Message msg = handler.obtainMessage(5);
         msg.obj = "Hello from run()";
-        handler.sendMessage(msg);
+        handler.sendMessage(msg);*/
 
-        //获取网络数据
-        URL url = null;
+        //获取网络数据,通过网络地址转成字符串
+        /*URL url = null;
         try {
-            url = new URL("http://www.usd-cny.com/icbc.htm");
+            url = new URL("www.usd-cny.com/bankofchina.htm");
             HttpURLConnection http = (HttpURLConnection) url.openConnection();
             InputStream in = http.getInputStream();//获得输入流
             //将in转换为字符串
             String html = inputStream2String(in);
             Log.i(TAG, "run: html="+html);
-
+            Document doc = Jsoup.parse(html);
 
         } catch (MalformedURLException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        */
+
+        Document doc = null;
+        try {
+            doc = Jsoup.connect("http://www.usd-cny.com/bankofchina.htm").get();
+            //直接从路径里面获得这个document对象
+            //doc = Jsoup.parse(html);
+            //获取源代码中的title
+            Log.i(TAG, "run: "+ doc.title());
+            //看这一个网页中包含多少个表格，并找出目标数据在第几个表格
+            Elements tables = doc.getElementsByTag("table");
+        /*    int i=1;
+            for(Element table: tables){
+                Log.i(TAG, "run: table["+i+"]="+ table);
+                i++;
+            }*/
+            Element table1 = tables.get(0);
+            Log.i(TAG, "run: table1="+table1);
+            //获取td中的数据
+            Elements tds = table1.getElementsByTag("td");
+            //从源代码中可以得知每一个tr中有6个数据，因此每跳跃一行就是td+6
+            //在一个table取数据，所有的td都在一个集合中
+            for(int i=0;i<tds.size();i+=6){
+                //提取第一列数据
+                Element td1 = tds.get(i);
+                //提取汇率
+                Element td2 = tds.get(i+5);
+                //显示每个币种及其对应的汇率
+                Log.i(TAG, "run:"+td1.text() + "==>" + td2.text());
+                String str1 = td1.text();
+                String val = td2.text();
+                //通过循环过滤出需要的币种
+                if("美元".equals(str1)){
+                    bundle.putFloat("dollar-rate",100f/Float.parseFloat(val));
+                }
+                else if("欧元".equals(str1)){
+                    bundle.putFloat("euro-rate",100f/Float.parseFloat(val));
+                }
+                else if("韩元".equals(str1)){
+                    bundle.putFloat("krw-rate",100f/Float.parseFloat(val));
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        //bundle中保存所获取的汇率,获取msg对象，返回主线程
+        Message msg = handler.obtainMessage(5);
+        msg.obj = bundle;
+        handler.sendMessage(msg);
+
 
 
     }
