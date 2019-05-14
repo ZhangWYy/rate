@@ -24,6 +24,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 public class week6 extends AppCompatActivity implements Runnable {
 
@@ -31,6 +34,7 @@ public class week6 extends AppCompatActivity implements Runnable {
     private float dollarRate = 0.1f;
     private float euroRate = 0.2f;
     private float krwRate = 0.3f;
+    private String updateDate = "";
 
     EditText rmb;
     TextView showTxt;
@@ -50,14 +54,32 @@ public class week6 extends AppCompatActivity implements Runnable {
         dollarRate = sharedPreferences.getFloat("dollar_rate",0.0f);
         euroRate = sharedPreferences.getFloat("euro_rate",0.0f);
         krwRate = sharedPreferences.getFloat("krw_rate",0.0f);
+        updateDate = sharedPreferences.getString("update_date","");
+
+        //获取当前系统时间
+        Date today = Calendar.getInstance().getTime();
+        //yyyy表示年 MM表示月 dd表示日 也可用“yyyyMMdd”表示 mm表示分钟
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        final String todayStr = sdf.format(today);
+
+
 
         Log.i(TAG,"onCreate: sp dollarRate=" + dollarRate);
         Log.i(TAG,"onCreate: sp euroRate="+euroRate);
         Log.i(TAG,"onCreate: sp krwRate="+krwRate);
+        Log.i(TAG, "onCreate: sp updateDate="+updateDate);
 
-        //开启子线程
-        Thread t = new Thread(this);//当前对象已经实现了接口，可以作为线程运行的载体
-        t.start();
+        //判断时间是否与系统时间相同
+        if(!todayStr.equals(updateDate)){
+            Log.i(TAG, "onCreate: 需要更新");
+            //开启子线程
+            Thread t = new Thread(this);//当前对象已经实现了接口，可以作为线程运行的载体
+            t.start();
+        }else{
+            Log.i(TAG, "onCreate: 不需要更新");
+        }
+
+
         handler = new Handler(){
             @Override
             public void handleMessage(Message msg) {
@@ -71,6 +93,15 @@ public class week6 extends AppCompatActivity implements Runnable {
                     Log.i(TAG, "handleMessage: dollarRate"+dollarRate);
                     Log.i(TAG, "handleMessage: euroRate"+euroRate);
                     Log.i(TAG, "handleMessage: krwRate"+krwRate);
+
+                    //保存更新的日期
+                    SharedPreferences sharedPreferences = getSharedPreferences("myrate", Activity.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    editor.putString("update_date",todayStr);
+                    editor.putFloat("dollar_rate",dollarRate);
+                    editor.putFloat("euro_rate",euroRate);
+                    editor.putFloat("krw_rate",krwRate);
+                    editor.apply();
 
                     Toast.makeText(week6.this,"汇率已更新",Toast.LENGTH_SHORT).show();
                 }
@@ -116,6 +147,10 @@ public class week6 extends AppCompatActivity implements Runnable {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId()==R.id.menu_set){
             openConfig();
+        }else if(item.getItemId()==R.id.open_list){
+            //打开列表窗口
+            Intent list = new Intent(this,MyList2Activity.class);
+            startActivity(list);
         }
 
         return super.onOptionsItemSelected(item);
@@ -131,6 +166,7 @@ public class week6 extends AppCompatActivity implements Runnable {
         Log.i(TAG,"openOne:euro_rate_key="+euroRate);
         Log.i(TAG,"openOne:krw_rate_key="+krwRate);
 
+        //startActivity(config)
         startActivityForResult(config,1);
     }
 
@@ -177,7 +213,7 @@ public class week6 extends AppCompatActivity implements Runnable {
         }
 
         //用于保存获取的汇率
-        Bundle bundle = new Bundle();
+        Bundle bundle;
 
 
         /*//获取Msg对象，用于返回主线程
@@ -205,6 +241,21 @@ public class week6 extends AppCompatActivity implements Runnable {
         }
         */
 
+        bundle = getFromUsdCny();
+
+        //bundle中保存所获取的汇率,获取msg对象，返回主线程
+        Message msg = handler.obtainMessage(5);
+        msg.obj = bundle;
+        handler.sendMessage(msg);
+
+
+
+    }
+
+    //从usd-cny.com/bankofchina获取数据
+
+    private Bundle getFromUsdCny() {
+        Bundle bundle = new Bundle();
         Document doc = null;
         try {
             doc = Jsoup.connect("http://www.usd-cny.com/bankofchina.htm").get();
@@ -219,7 +270,7 @@ public class week6 extends AppCompatActivity implements Runnable {
                 Log.i(TAG, "run: table["+i+"]="+ table);
                 i++;
             }*/
-            Element table1 = tables.get(0);
+           Element table1 = tables.get(0);
             Log.i(TAG, "run: table1="+table1);
             //获取td中的数据
             Elements tds = table1.getElementsByTag("td");
@@ -249,15 +300,10 @@ public class week6 extends AppCompatActivity implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        //bundle中保存所获取的汇率,获取msg对象，返回主线程
-        Message msg = handler.obtainMessage(5);
-        msg.obj = bundle;
-        handler.sendMessage(msg);
-
-
-
+        return bundle;
     }
+
+
 
     //将输入流转换成字符串输出
     private String inputStream2String(InputStream inputStream) throws IOException {

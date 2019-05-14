@@ -25,7 +25,7 @@ public class ConfigActivity extends AppCompatActivity {
         float krw2 = intent.getFloatExtra("krw_rate_key",0.0f);
 
         Log.i(TAG,"onCreate:dollar2="+dollar2);
-        Log.i(TAG,"onCreat:euro2="+euro2);
+        Log.i(TAG,"onCreate:euro2="+euro2);
         Log.i(TAG,"onCreate:krw2="+krw2);
 
         dollarText = (EditText)findViewById(R.id.dollar_rate);
