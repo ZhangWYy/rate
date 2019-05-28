@@ -9,4 +9,7 @@
     <string name="btn_save_label">Save</string>
     <string name="memu_set_label">Setting</string>
     <string name="label_open_list">OpenList</string>
+    <string name="rdo_home_label">Home</string>
+    <string name="rdo_func_label">Function</string>
+    <string name="rdo_setting_label">Setting</string>
 </resources>
